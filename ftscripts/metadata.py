@@ -41,7 +41,7 @@ def metadata_table_bool(base_path, organism_name, locus_tag_true:str, property:s
 
     data = {
         "gene": locus_tags,
-        property: [locus_tag in locus_tag_true for locus_tag in locus_tags]
+        property: ['Y' if locus_tag in locus_tag_true else 'N' for locus_tag in locus_tags]
     }
     
     metadata_table = pd.DataFrame(data)

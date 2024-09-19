@@ -67,7 +67,6 @@ def deg_parse (base_path, organism_name, identity_filter, coverage_filter):
 
         unique_values = filtered_df['qseqid'].unique()
         deg_hits = unique_values.tolist()
-
         df_deg = metadata.metadata_table_bool(base_path, organism_name, deg_hits, 
                                             'hit_in_deg', essentiality_path)
     else:
