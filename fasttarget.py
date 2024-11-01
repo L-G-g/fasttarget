@@ -20,10 +20,9 @@ def print_stylized(title, width=80):
     print(f'{title.center(width)}')
     print(asterisk_line)
 
-def main(config, base_path):
+def main(config, base_path, overwrite=False):
     """
     Main function to run FastTarget.
-    
     :param config: Configuration object.
     :param base_path: Base path of the FastTarget repository folder.
 
@@ -31,7 +30,7 @@ def main(config, base_path):
     """
     results = None
 
-    #Obtaining the databases: DEG, HUMAN and MICROBIOME
+    # Obtaining the databases: DEG, HUMAN and MICROBIOME
     print_stylized('DATABASES')
     databases.main(base_path)
 
@@ -39,14 +38,18 @@ def main(config, base_path):
     print_stylized('GENOME')
 
     organism_name = config.organism['name']
+    organism_folder = os.path.join(base_path, 'organism', organism_name)
     tax_id = config.organism['tax_id']
     gbk_file = config.organism['gbk_file']
-    
     print(f'Organism name: {organism_name}')
     print(f'Tax ID: {tax_id}')
     print(f'Genome file: {gbk_file}')
 
-    # Create organism subfolders
+    # Deletes organism subfolders
+    if overwrite and os.path.exists(organism_folder):
+        shutil.rmtree(organism_folder)
+        logging.info(f'Deleted existing organism folder: {organism_folder}')
+
     files.create_organism_subfolders(base_path, organism_name)
     logging.info(f'Organism subfolders created in {base_path}/organism/{organism_name}')
 
@@ -71,7 +74,7 @@ def main(config, base_path):
 
             logging.info('Starting metabolic analysis')
 
-            sbml_file =  config.metabolism['sbml_file']
+            sbml_file = config.metabolism['sbml_file']
             chokepoint_file = config.metabolism['chokepoint_file']
             smarttable_file = config.metabolism['smarttable_file']
 
@@ -80,7 +83,7 @@ def main(config, base_path):
             logging.info(f'Smarttable file: {smarttable_file}')
 
             # Parse metabolic files, make network and calculate centrality
-            df_centrality, df_edges, df_chokepoints = pathways.run_metabolism (base_path, organism_name, sbml_file, chokepoint_file, smarttable_file)
+            df_centrality, df_edges, df_chokepoints = pathways.run_metabolism(base_path, organism_name, sbml_file, chokepoint_file, smarttable_file)
             tables.append(df_centrality)
             tables.append(df_edges)
             tables.append(df_chokepoints)
@@ -88,7 +91,7 @@ def main(config, base_path):
             logging.info('Metabolic analysis finished')
 
         except Exception as e:
-            logging.error(f'Error in metabolic analysis: {e}')        
+            logging.error(f'Error in metabolic analysis: {e}')
     else:
         logging.info('Metabolic analysis not enabled')
 
@@ -97,18 +100,16 @@ def main(config, base_path):
         try:
             print_stylized('STRUCTURES')
             logging.info('Starting structures analysis')
-
             proteome_uniprot = config.structures['proteome_uniprot']
             logging.info(f'Proteome Uniprot: {proteome_uniprot}')
-            
             # Get annotation information from UniProt proteome and links IDs with the genome locus_tags of the organism
             uniprot_proteome_annotations, id_equivalences = structures.uniprot_proteome(base_path, organism_name, proteome_uniprot, cpus=8)
             logging.info('Uniprot proteome annotations and ID equivalences obtained')
             # Download PDB and AlphaFold structures
-            structures.structures (base_path, organism_name, proteome_uniprot, cpus=8)
+            structures.structures(base_path, organism_name, proteome_uniprot, cpus=8)
             logging.info('Structures downloaded')
-            # Find pockets using Fpocket. Keep the pockets with higher Druggability Score  
-            df_structures = structures.pockets (base_path, organism_name, id_equivalences, uniprot_proteome_annotations, cpus=8)
+            # Find pockets using Fpocket. Keep the pockets with higher Druggability Score
+            df_structures = structures.pockets(base_path, organism_name, id_equivalences, uniprot_proteome_annotations, cpus=8)
             logging.info('Pockets searched and filtered')
             logging.info('Structures analysis finished')
             tables.append(df_structures)
@@ -357,9 +358,10 @@ def main(config, base_path):
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description='FastTarget script')
     parser.add_argument('--config_file', type=str, default='config.yml', help='Path to the configuration file')
+    parser.add_argument('--overwrite', action="store_true", help='Delete existing organism folders before running the script')
     args = parser.parse_args()
 
     config = configuration.get_config(args.config_file)
     base_path = os.path.dirname(os.path.abspath(__file__))
 
-    main(config, base_path)
+    main(config, base_path, args.overwrite)
